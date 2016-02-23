@@ -16,11 +16,21 @@
  * limitations under the License.
  */
 
-#ifndef _QCOM_POWER_FEATURE_H
-#define _QCOM_POWER_FEATURE_H
+package com.validity.fingerprint;
 
-#include <hardware/power.h>
+import android.app.Application;
+import android.content.Context;
+import android.content.Intent;
+import android.util.Log;
 
-void set_device_specific_feature(struct power_module *module, feature_t feature, int state);
+public class ValidityServiceStarter extends Application {
 
-#endif
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        VLog.v("onCreate");
+        Intent serviceintent = new Intent(this, ValidityService.class);
+        startService(serviceintent);
+    }
+
+}

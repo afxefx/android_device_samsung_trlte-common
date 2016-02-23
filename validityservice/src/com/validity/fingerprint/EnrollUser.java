@@ -16,11 +16,15 @@
  * limitations under the License.
  */
 
-#ifndef _QCOM_POWER_FEATURE_H
-#define _QCOM_POWER_FEATURE_H
+package com.validity.fingerprint;
 
-#include <hardware/power.h>
+public class EnrollUser {
+    public int fingerIndex;
+    public int mode;
+    public String userId;
 
-void set_device_specific_feature(struct power_module *module, feature_t feature, int state);
+    public EnrollUser() {
+        mode = 1;
+    }
 
-#endif
+}

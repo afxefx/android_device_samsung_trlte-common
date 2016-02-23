@@ -16,11 +16,18 @@
  * limitations under the License.
  */
 
-#ifndef _QCOM_POWER_FEATURE_H
-#define _QCOM_POWER_FEATURE_H
+package com.validity.fingerprint;
 
-#include <hardware/power.h>
-
-void set_device_specific_feature(struct power_module *module, feature_t feature, int state);
-
-#endif
+public class IdentifyResult {
+    public byte templateId[] = new byte[16];
+    public int matchedFingerIndexes[] = new int[20];
+    public int corrMinuCount[] = new int[4];
+    public int vMinuCount[] = new int[4];
+    public String appData;
+    public int fMinuCount;
+    public int fingerIndex;
+    public float matchRate;
+    public int matchScore;
+    public int templateUpdated;
+    public String userId;
+}

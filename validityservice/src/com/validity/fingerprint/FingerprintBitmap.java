@@ -16,11 +16,11 @@
  * limitations under the License.
  */
 
-#ifndef _QCOM_POWER_FEATURE_H
-#define _QCOM_POWER_FEATURE_H
+package com.validity.fingerprint;
 
-#include <hardware/power.h>
+import android.graphics.Bitmap;
 
-void set_device_specific_feature(struct power_module *module, feature_t feature, int state);
-
-#endif
+public class FingerprintBitmap {
+    public Bitmap fingerprint;
+    public int quality;
+}

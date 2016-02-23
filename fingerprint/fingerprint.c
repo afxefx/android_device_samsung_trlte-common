@@ -197,40 +197,9 @@ int db_convert_old_db(vcs_fingerprint_device_t* vdev) {
     return ret;
 }
 
-int db_read_to_tz(void* device) {
-    ALOGV("----------------> %s ----------------->", __FUNCTION__);
-    vcs_fingerprint_device_t* vdev = (vcs_fingerprint_device_t*)device;
-    char* errmsg;
-    int ret = 0;
-    char cmd[MAX_DATABASE_CMD];
-    sqlite3_stmt *stat;
-
-    db_check_and_create_table(vdev);
-
-    if (!access(SAMSUNG_FP_DB_PATH, 0)) {
-        ALOGI("Samsung fingerprint database exist! Convert it");
-        return db_convert_old_db(vdev);
-    }
-
-    memset(tz.finger, 0, MAX_NUM_FINGERS * sizeof(finger_t));
-    sprintf(cmd, "select * from gid_%d", vdev->active_gid);
-    sqlite3_prepare(vdev->db, cmd, -1, &stat, 0);
-    while(1) {
-        int ret = sqlite3_step(stat);
-        if (ret != SQLITE_ROW) {
-            break;
-        }
-        int id = sqlite3_column_int(stat, 0);
-        const void *data = sqlite3_column_blob(stat, 1);
-        memcpy(tz.finger[id].data, data, FINGER_DATA_MAX_LENGTH);
-        const void *payload = sqlite3_column_blob(stat, 2);
-        memcpy(tz.finger[id].payload, payload, PAYLOAD_MAX_LENGTH);
-        ALOGV("read fingerprint data from database: id=%d", id);
-        tz.finger[id].exist = true;
-    }
-    sqlite3_finalize(stat);
-
-    return 0;
+static int getfingermask(vcs_fingerprint_device_t* vdev) {
+    uint8_t command_getlist[2] = {CALL_GET_ENROLLED_FINGER_LIST, (uint8_t)vdev->active_gid};
+    return sendcommand(vdev, command_getlist, 2);
 }
 
 int db_write_to_db(void* device, bool remove, int fid) {
@@ -267,17 +236,11 @@ int db_init(void* device) {
         ALOGE("Open finger database failed!");
         return -1;
     }
-    return db_read_to_tz(vdev);
-}
+    uint8_t command[1] = {CALL_INITSERVICE};
 
-int db_uninit(void* device) {
-    ALOGV("----------------> %s ----------------->", __FUNCTION__);
-    vcs_fingerprint_device_t* vdev = (vcs_fingerprint_device_t*)device;
-    int ret = 0;
-    ret = sqlite3_close(vdev->db);
-    if (ret != SQLITE_OK) {
-        ALOGE("Close finger database failed!");
-    }
+    ret = sendcommand(vdev, command, 1);
+    vdev->authenticator_id = getfingermask(vdev);
+    vdev->init = true;
     return ret;
 }
 
@@ -404,7 +367,7 @@ static uint64_t fingerprint_get_auth_id(struct fingerprint_device* device) {
     ALOGV("----------------> %s ----------------->", __FUNCTION__);
     uint64_t authenticator_id = 0;
     pthread_mutex_lock(&vdev->lock);
-    vdev->authenticator_id = hash_file(FINGER_DATABASE_FILENAME);
+    vdev->authenticator_id = getfingermask(vdev);
     authenticator_id = vdev->authenticator_id;
     pthread_mutex_unlock(&vdev->lock);
 
@@ -434,7 +397,9 @@ static int fingerprint_authenticate(struct fingerprint_device *device,
     pthread_mutex_lock(&vdev->lock);
 
     vdev->op_id = operation_id;
-    ret = vcs_start_authenticate(vdev);
+    vdev->listener.state = STATE_SCAN;
+    uint8_t command[2] = {CALL_IDENTIFY, (uint8_t)vdev->active_gid};
+    ret = sendcommand(vdev, command, 2);
 
     pthread_mutex_unlock(&vdev->lock);
 
@@ -449,6 +414,9 @@ static int fingerprint_enroll(struct fingerprint_device *device,
     vcs_fingerprint_device_t* vdev = (vcs_fingerprint_device_t*)device;
     int ret = -EINVAL;
     int idx = 1;
+    uint8_t command[3] = {CALL_ENROLL, (uint8_t)vdev->active_gid, 0};
+
+    checkinit(vdev);
 
     if (!hat) {
         ALOGW("%s: null auth token", __func__);
@@ -471,20 +439,19 @@ static int fingerprint_enroll(struct fingerprint_device *device,
 
     pthread_mutex_lock(&vdev->lock);
 
-    for (idx = 1; idx <= MAX_NUM_FINGERS; idx++) {
-        if (!tz.finger[idx].exist) {
+    fingermask = getfingermask(vdev);
+    ALOGI("fingerprint_enroll: fingermask=%d", fingermask);
+    for (idx = 1; idx <= MAX_NUM_FINGERS; idx++)
+        if (!((fingermask >> idx) & 1))
             break;
-        }
-    }
-    if (idx > MAX_NUM_FINGERS) {
-        send_error_notice(vdev, FINGERPRINT_ERROR_NO_SPACE);
-        pthread_mutex_unlock(&vdev->lock);
-        return -1;
-    }
-    ret = vcs_start_enroll(vdev, timeout_sec);
+
+    command[2] = (uint8_t)idx;
+    ret = sendcommand(vdev, command, 3);
 
     pthread_mutex_unlock(&vdev->lock);
     ALOGV("enroll ret=%d",ret);
+
+    vdev->authenticator_id = getfingermask(vdev);
 
     return ret;
 }
@@ -518,27 +485,15 @@ static int fingerprint_cancel(struct fingerprint_device *device) {
     ALOGV("----------------> %s ----------------->", __FUNCTION__);
     vcs_fingerprint_device_t* vdev = (vcs_fingerprint_device_t*)device;
     int ret = 0;
-    int flag = 0;
 
-    if (tz.timeout.timeout_thread) {
-        pthread_mutex_lock(&tz.timeout.lock);
-        pthread_cond_signal(&tz.timeout.cond);
-        pthread_mutex_unlock(&tz.timeout.lock);
-        pthread_join(tz.timeout.timeout_thread, NULL);
-        tz.timeout.timeout_thread = 0;
-    }
-    if (get_tz_state() != STATE_IDLE && get_tz_state() != STATE_CANCEL) {
-        set_tz_state(STATE_CANCEL);
-        ioctl(sensor.fd, VFSSPI_IOCTL_SET_DRDY_INT, &flag);
-        pthread_mutex_lock(&sensor.lock);
-        pthread_cond_signal(&sensor.cond);
-        pthread_mutex_unlock(&sensor.lock);
-        while (1) {
-            usleep(100000);
-            if (tz.state == STATE_IDLE)
-                break;
-        }
-    }
+    checkinit(vdev);
+
+    pthread_mutex_lock(&vdev->lock);
+    vdev->listener.state = STATE_IDLE;
+
+    uint8_t command[1] = {CALL_CANCEL};
+    ret = sendcommand(vdev, command, 1);
+    pthread_mutex_unlock(&vdev->lock);
 
     return ret;
 }
@@ -574,6 +529,10 @@ static int fingerprint_remove(struct fingerprint_device *device,
     }
 
     vcs_fingerprint_device_t* vdev = (vcs_fingerprint_device_t*)device;
+
+    uint8_t command[3] = {CALL_REMOVE, (uint8_t)vdev->active_gid, 0};
+
+    checkinit(vdev);
 
     if (fid == 0) {
         // Delete all fingerprints
@@ -634,11 +593,10 @@ static int fingerprint_close(hw_device_t* device) {
     vcs_fingerprint_device_t* vdev = (vcs_fingerprint_device_t*)device;
 
     pthread_mutex_lock(&vdev->lock);
-    db_uninit(vdev);
-    vcs_init();
-    vcs_stop_auth_session();
-    vcs_uninit();
-    sensor_uninit();
+    // Ask listener thread to exit
+    vdev->listener.state = STATE_EXIT;
+    uint8_t command[1] = {CALL_CLEANUP};
+    sendcommand(vdev, command, 1);
     pthread_mutex_unlock(&vdev->lock);
 
     pthread_mutex_destroy(&vdev->lock);

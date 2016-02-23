@@ -16,11 +16,17 @@
  * limitations under the License.
  */
 
-#ifndef _QCOM_POWER_FEATURE_H
-#define _QCOM_POWER_FEATURE_H
+package com.validity.fingerprint;
 
-#include <hardware/power.h>
+public class EnrollCaptureStatus {
 
-void set_device_specific_feature(struct power_module *module, feature_t feature, int state);
+    public int badSwipes;
+    public int cumulativeCoverageMap;
+    public int currentCoverageMap;
+    public int imageQuality;
+    public int positionFeedback;
+    public int progress;
+    public int templateResult;
+    public int totalSwipes;
 
-#endif
+}

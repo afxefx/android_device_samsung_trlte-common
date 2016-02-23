@@ -16,11 +16,17 @@
  * limitations under the License.
  */
 
-#ifndef _QCOM_POWER_FEATURE_H
-#define _QCOM_POWER_FEATURE_H
+package com.validity.fingerprint;
 
-#include <hardware/power.h>
 
-void set_device_specific_feature(struct power_module *module, feature_t feature, int state);
+public class ConsumerInfo {
+    public Object info;
+    public int type;
 
-#endif
+    public ConsumerInfo() {
+    }
+
+    public ConsumerInfo(int type) {
+        this.type = type;
+    }
+}
