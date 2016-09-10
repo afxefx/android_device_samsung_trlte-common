@@ -21,6 +21,7 @@ LOCAL_PATH := device/samsung/trlte-common
 
 # Architecture
 TARGET_CPU_VARIANT := krait
+TARGET_KERNEL_CUSTOM_TOOLCHAIN := linux-x86/arm/Linaro-X-Uber-arm-eabi-5.x
 
 ENABLE_CPUSETS := true
 
