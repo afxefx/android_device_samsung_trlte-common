@@ -1,13 +1,13 @@
 [
   {
     "remote":"emotroid",
-    "repository": "Emotroid-Rom/proprietary_vendor_samsung",
+    "repository": "afxefx/proprietary_vendor_samsung",
     "target_path": "vendor/samsung",
     "branch": "mm"
   },
   {
     "remote":"emotroid",
-    "repository": "Emotroid-Rom/emotion_cm_kernel_trlte",
+    "repository": "afxefx/emotion_cm_kernel_trlte",
     "target_path": "kernel/samsung/trlte",
     "branch": "mm"
   },
