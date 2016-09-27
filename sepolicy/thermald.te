@@ -1,0 +1,2 @@
+# Access to /dev/msm_thermal_query
+allow thermald thermal_engine_device:chr_file rw_file_perms;
