@@ -38,7 +38,7 @@
 #include <dlfcn.h>
 
 #include "fingerprint_tz.h"
-#include "fp_klte.h"
+#include "fp_trlte.h"
 
 extern vcs_sensor_t sensor;
 trust_zone_t tz;
