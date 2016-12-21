@@ -19,19 +19,16 @@
 #include "fingerprint_common.h"
 #include "vfs61xx_ioctl.h"
 
-#define CALL_BASE 0
+#define FINGER_DATABASE_FILENAME "/data/validity/finger.db"
+#define SAMSUNG_FP_DB_PATH "/data/validity/template.db"
+#define SENSOR_FILE_NAME "/dev/vfsspi"
+#define MAX_DATABASE_CMD 255
 
-#define CALL_INITSERVICE 1
-#define CALL_ENROLL 2
-//userId ,fingerIndex
-#define CALL_CANCEL 3
-#define CALL_REMOVE 4
-//userId ,fingerIndex
-#define CALL_IDENTIFY 5
-//userId
-#define CALL_GET_ENROLLED_FINGER_LIST  6
-//userId
-#define CALL_CLEANUP 7
+int sensor_uninit();
+int sensor_init();
+void sensor_process_signal(int signum);
+int sensor_register();
+int sensor_capture_start();
 
 int db_check_and_create_table(void* device);
 int db_read_to_tz(void *device);
